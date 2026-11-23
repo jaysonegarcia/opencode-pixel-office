@@ -1,10 +1,18 @@
 import type { Observation, OfficeSnapshot, SessionMeta, SessionView } from '../shared/protocol.js';
 
-const MAX_SESSIONS = 500;
-const MAX_HISTORY = 50;
-const DONE_IDLE_MS = 15_000;
-const LEASE_MS = 30_000;
-const MAX_SEEN_EVENTS = 2_000;
+interface StoreOptions {
+  maxSessions?: number;
+  maxHistory?: number;
+  doneIdleMs?: number;
+  leaseMs?: number;
+  maxSeenEvents?: number;
+}
+
+const DEFAULT_MAX_SESSIONS = 500;
+const DEFAULT_MAX_HISTORY = 50;
+const DEFAULT_DONE_IDLE_MS = 15_000;
+const DEFAULT_LEASE_MS = 30_000;
+const DEFAULT_MAX_SEEN_EVENTS = 2_000;
 
 interface SessionRecord extends SessionMeta {
   status: SessionView['status'];
@@ -41,6 +49,17 @@ export class OfficeStore {
   private sources = new Map<string, SourceRecord>();
   private revision = 0;
   private capacityReached = false;
+  private readonly options: Required<StoreOptions>;
+
+  constructor(options: StoreOptions = {}) {
+    this.options = {
+      maxSessions: options.maxSessions ?? DEFAULT_MAX_SESSIONS,
+      maxHistory: options.maxHistory ?? DEFAULT_MAX_HISTORY,
+      doneIdleMs: options.doneIdleMs ?? DEFAULT_DONE_IDLE_MS,
+      leaseMs: options.leaseMs ?? DEFAULT_LEASE_MS,
+      maxSeenEvents: options.maxSeenEvents ?? DEFAULT_MAX_SEEN_EVENTS,
+    };
+  }
 
   apply(events: Observation[]): void {
     let changed = false;
@@ -88,10 +107,10 @@ export class OfficeStore {
 
   sweep(now: number): void {
     for (const [id, source] of this.sources) {
-      if (now - source.lastSeen > LEASE_MS) this.disconnect(id);
+      if (now - source.lastSeen > this.options.leaseMs) this.disconnect(id);
     }
     for (const session of this.sessions.values()) {
-      if (session.status === 'done' && session.doneAt !== null && now - session.doneAt >= DONE_IDLE_MS) {
+      if (session.status === 'done' && session.doneAt !== null && now - session.doneAt >= this.options.doneIdleMs) {
         session.status = 'idle';
         session.activity = 'Idle';
         session.doneAt = null;
@@ -119,7 +138,7 @@ export class OfficeStore {
     }
     let connectedSources = 0;
     for (const source of this.sources.values()) {
-      if (now - source.lastSeen <= LEASE_MS) connectedSources += 1;
+      if (now - source.lastSeen <= this.options.leaseMs) connectedSources += 1;
     }
     return {
       revision: this.revision,
@@ -136,7 +155,7 @@ export class OfficeStore {
       if (source.seen.has(event.eventID)) return false;
       source.seen.add(event.eventID);
       source.seenOrder.push(event.eventID);
-      if (source.seenOrder.length > MAX_SEEN_EVENTS) {
+      if (source.seenOrder.length > this.options.maxSeenEvents) {
         const oldest = source.seenOrder.shift();
         if (oldest) source.seen.delete(oldest);
       }
@@ -156,7 +175,7 @@ export class OfficeStore {
       return;
     }
     const previous = this.sessions.get(event.sessionID);
-    if (!previous && event.kind === 'metadata' && this.sessions.size >= MAX_SESSIONS) {
+    if (!previous && event.kind === 'metadata' && this.sessions.size >= this.options.maxSessions) {
       this.capacityReached = true;
       return;
     }
@@ -268,7 +287,7 @@ export class OfficeStore {
   private record(session: SessionRecord, event: Observation): void {
     const label = LABELS[event.kind];
     session.history.push({ at: event.at, kind: event.kind, label });
-    if (session.history.length > MAX_HISTORY) session.history.splice(0, session.history.length - MAX_HISTORY);
+    if (session.history.length > this.options.maxHistory) session.history.splice(0, session.history.length - this.options.maxHistory);
   }
 
   private source(sourceID: string): SourceRecord {
