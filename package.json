@@ -1,0 +1,31 @@
+{
+  "name": "@jaysonegarcia/opencode-pixel-office",
+  "version": "0.1.0",
+  "description": "A local pixel-art office for existing OpenCode V2 sessions",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22" },
+  "exports": { "./server": "./dist/plugin/index.js" },
+  "bin": { "opencode-pixel-office": "./dist/server/cli.js" },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json && vite build",
+    "dev": "vite --host 127.0.0.1",
+    "start": "node dist/server/cli.js start"
+  },
+  "dependencies": {
+    "@opencode/plugin": "2.2.7",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1",
+    "vitest": "^3.2.4"
+  }
+}
