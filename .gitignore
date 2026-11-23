@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.superpowers/
+*.log
+.env*
+.opencode/
+coverage/
+playwright-report/
