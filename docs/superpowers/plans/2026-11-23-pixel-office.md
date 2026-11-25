@@ -128,8 +128,8 @@ Single package with a `./server` export for the plugin and a CLI for the collect
 - [x] Run `yarn test`, `yarn typecheck`, `yarn build`; inspect exit codes. Exercise the installed package rather than only source imports. Verify live current-session activity, waiting state where a natural request allows it, collector restart/reconnect, and plugin cleanup/reload. Verify another project and child-session flow with existing activity if available; report any live scenario not exercised rather than claiming it passed from fixtures.
 - [x] Request a fresh whole-branch review using the applicable review skill. Address functional findings and rerun only affected checks, plus the required final checks after implementation changes.
 - [x] Inspect `git status`, staged diff and tracked file list for local runtime data, secrets, generated logs and user-specific screenshots. Commit the deliverable and mark plan checkboxes accurately.
-- [ ] Check whether `jaysonegarcia/opencode-pixel-office` exists; create it public if absent. If present, inspect its contents/history before choosing the remote. Push the verified branch without force, verify remote commit SHA and public visibility.
-- [ ] Save durable project/setup details in `AI Memory/Projects/` and verify the note. Final response includes repository URL, verified startup command, local URL, test summary, and any remaining limitation.
+- [x] Check whether `jaysonegarcia/opencode-pixel-office` exists; create it public if absent. If present, inspect its contents/history before choosing the remote. Push the verified branch without force, verify remote commit SHA and public visibility.
+- [x] Save durable project/setup details in `AI Memory/Projects/` and verify the note. Final response includes repository URL, verified startup command, local URL, test summary, and any remaining limitation.
 
 ## Plan self-review
 
