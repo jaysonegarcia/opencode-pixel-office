@@ -61,11 +61,11 @@ Single package with a `./server` export for the plugin and a CLI for the collect
 - `OfficeSnapshot`: `revision: number`, `sessions: SessionView[]`, `connectedSources: number`, `generatedAt: number`.
 - `OfficeStore.apply(observations: Observation[]): void`, `snapshot(now: number): OfficeSnapshot`, `heartbeat(sourceID: string, now: number): void`, `disconnect(sourceID: string): void`, `sweep(now: number): void`.
 
-- [ ] Establish the new repository without modifying other directories. Check ancestor instructions and existing path contents; preserve the approved docs. Configure Yarn scripts `test`, `typecheck`, `build`, `dev`, `start`. Initialize Git on `main`; exclude dependencies, builds, logs, local credentials, runtime data and screenshots.
-- [ ] Write failing tests: `overlapping_tools_remain_active` (end A leaves B); `requests_outrank_tools` (closing one of two requests keeps waiting); `tool_end_is_not_turn_end`; `settlement_clears_calls`; `duplicates_and_old_sequences_are_ignored`; `project_and_child_identity_preserved`; `error_then_new_turn_recovers`; `disconnect_is_not_done`; `history_is_capped_at_50`.
-- [ ] Run `yarn test tests/store.test.ts`; verify missing implementation fails.
-- [ ] Implement protocol and reducer. State maps by session ID and tracks request/call IDs. Retain up to 50 actions per session and 500 sessions; evict oldest inactive records first and expose a capacity notice if all are active. Sequence deduplication is per source. Done transitions to idle after 15 seconds; source lease expires after 30 seconds. Do not synthesize completion on lease expiry.
-- [ ] Run the store tests and typecheck; expect all to pass. Commit `feat: add normalized office state model`.
+- [x] Establish the new repository without modifying other directories. Check ancestor instructions and existing path contents; preserve the approved docs. Configure Yarn scripts `test`, `typecheck`, `build`, `dev`, `start`. Initialize Git on `main`; exclude dependencies, builds, logs, local credentials, runtime data and screenshots.
+- [x] Write failing tests: `overlapping_tools_remain_active` (end A leaves B); `requests_outrank_tools` (closing one of two requests keeps waiting); `tool_end_is_not_turn_end`; `settlement_clears_calls`; `duplicates_and_old_sequences_are_ignored`; `project_and_child_identity_preserved`; `error_then_new_turn_recovers`; `disconnect_is_not_done`; `history_is_capped_at_50`.
+- [x] Run `yarn test tests/store.test.ts`; verify missing implementation fails.
+- [x] Implement protocol and reducer. State maps by session ID and tracks request/call IDs. Retain up to 50 actions per session and 500 sessions; evict oldest inactive records first and expose a capacity notice if all are active. Sequence deduplication is per source. Done transitions to idle after 15 seconds; source lease expires after 30 seconds. Do not synthesize completion on lease expiry.
+- [x] Run the store tests and typecheck; expect all to pass. Commit `feat: add normalized office state model`.
 
 ### Task 2: Serve the local collector and authenticated browser transport
 
@@ -78,11 +78,11 @@ Single package with a `./server` export for the plugin and a CLI for the collect
 - `POST /api/heartbeat`: bearer-authenticated source ID; `GET /api/snapshot` and `GET /api/events` use browser session authentication. SSE sends complete snapshots with revisions; browser reconnect begins with a fresh snapshot.
 - `GET /health`: non-sensitive version/health only. Browser bootstrap uses a short-lived single-use random exchange code in a fragment, exchanges it by same-origin POST, clears the fragment, and sets an HttpOnly SameSite=Strict cookie. No raw ingestion key in URLs or logs.
 
-- [ ] Write failing tests `ingestion_requires_auth`, `rejects_wrong_origin_and_host`, `rejects_oversize_or_invalid_payload`, `bootstrap_is_one_use`, `cookie_required_for_snapshot`, `sse_snapshot_matches_ingestion`, `disconnect_cleans_subscriber`, `lease_expiry_marks_disconnected`, `static_path_traversal_rejected`.
-- [ ] Run `yarn test tests/server.test.ts`; verify expected failures.
-- [ ] Implement HTTP routes with strict allowlists for labels/fields and bounded bodies, loopback-only binding, request host/origin checks, and static asset confinement. Do not enable CORS. Coalesce SSE writes and disconnect slow clients rather than creating unbounded buffers.
-- [ ] Implement CLI commands `start`, `open`, `status`, `--help`, with port option. `start` runs in foreground and prints a local app URL without the long-lived key. `open` requests a fresh bootstrap link through authenticated loopback and opens the browser. Give an actionable error on occupied port; do not silently use an unrelated service.
-- [ ] Run server tests, typecheck and CLI help smoke check. Commit `feat: add local authenticated office collector`.
+- [x] Write failing tests `ingestion_requires_auth`, `rejects_wrong_origin_and_host`, `rejects_oversize_or_invalid_payload`, `bootstrap_is_one_use`, `cookie_required_for_snapshot`, `sse_snapshot_matches_ingestion`, `disconnect_cleans_subscriber`, `lease_expiry_marks_disconnected`, `static_path_traversal_rejected`.
+- [x] Run `yarn test tests/server.test.ts`; verify expected failures.
+- [x] Implement HTTP routes with strict allowlists for labels/fields and bounded bodies, loopback-only binding, request host/origin checks, and static asset confinement. Do not enable CORS. Coalesce SSE writes and disconnect slow clients rather than creating unbounded buffers.
+- [x] Implement CLI commands `start`, `open`, `status`, `--help`, with port option. `start` runs in foreground and prints a local app URL without the long-lived key. `open` requests a fresh bootstrap link through authenticated loopback and opens the browser. Give an actionable error on occupied port; do not silently use an unrelated service.
+- [x] Run server tests, typecheck and CLI help smoke check. Commit `feat: add local authenticated office collector`.
 
 ### Task 3: Integrate and prove native OpenCode V2 observation
 
@@ -93,13 +93,13 @@ Single package with a `./server` export for the plugin and a CLI for the collect
 - `createTransport({url, credential, sourceID, reconcile}): {enqueue(event: Observation): void; close(): Promise<void>}` sends batches asynchronously, heartbeats every 10 seconds, retries with capped backoff, and invokes `reconcile` after reconnect or queue loss.
 - `hydrateSession(sessionID: string): Promise<SessionMeta>` uses current V2 session metadata; all normalization must go through the protocol from Task 1.
 
-- [ ] Verify the installed OpenCode version, published V2 SDK package/version, concrete session/activity/request event schemas and request shapes from official docs and the running API. Record only synthetic schema fixtures. Check public API pagination and event scoping before selecting exact subscriptions. Use the current authenticated OpenCode API context, not direct unauthenticated requests.
-- [ ] Write failing adapter tests for actual V2-shaped tool events, parent/child metadata, agent changes, active/waiting bootstrap, multiple project directories, duplicate location subscriptions, and metadata-only output. Assert raw input/output/prompt/error strings are absent. Write transport tests asserting callbacks do not wait for failed HTTP, bounded queue of 500, reconnection requests a fresh snapshot, and cleanup stops timers.
-- [ ] Run `yarn test tests/adapter.test.ts tests/transport.test.ts`; verify expected failures.
-- [ ] Implement `Plugin.define({id: 'opencode-pixel-office', setup})` and observer. Limit location ownership to actual session location using the SDK's documented identities; global stream subscriptions must not double-forward. Ensure callbacks never throw network errors into OpenCode. Reconcile active/waiting sessions through paginated V2 APIs; never import archived idle sessions wholesale. Unknown in-flight tools remain labeled unknown until observed.
-- [ ] Implement bounded asynchronous transport. On reconnect clear stale source-owned tool/request state through authoritative reconciliation; guard hydration races with event sequence/version checks so an old snapshot cannot resurrect a settled turn.
-- [ ] Run tests/typecheck/build. Install the plugin using supported global V2 directory/package configuration while preserving unrelated configuration. Reload using supported V2 behavior. Confirm it appears active and verify genuine current-session events reach the collector. This is a required integration gate before UI claims. If the running API has a material limitation, record it rather than inventing data.
-- [ ] Commit `feat: observe existing OpenCode V2 sessions`.
+- [x] Verify the installed OpenCode version, published V2 SDK package/version, concrete session/activity/request event schemas and request shapes from official docs and the running API. Record only synthetic schema fixtures. Check public API pagination and event scoping before selecting exact subscriptions. Use the current authenticated OpenCode API context, not direct unauthenticated requests.
+- [x] Write failing adapter tests for actual V2-shaped tool events, parent/child metadata, agent changes, active/waiting bootstrap, multiple project directories, duplicate location subscriptions, and metadata-only output. Assert raw input/output/prompt/error strings are absent. Write transport tests asserting callbacks do not wait for failed HTTP, bounded queue of 500, reconnection requests a fresh snapshot, and cleanup stops timers.
+- [x] Run `yarn test tests/adapter.test.ts tests/transport.test.ts`; verify expected failures.
+- [x] Implement `Plugin.define({id: 'opencode-pixel-office', setup})` and observer. Limit location ownership to actual session location using the SDK's documented identities; global stream subscriptions must not double-forward. Ensure callbacks never throw network errors into OpenCode. Reconcile active/waiting sessions through paginated V2 APIs; never import archived idle sessions wholesale. Unknown in-flight tools remain labeled unknown until observed.
+- [x] Implement bounded asynchronous transport. On reconnect clear stale source-owned tool/request state through authoritative reconciliation; guard hydration races with event sequence/version checks so an old snapshot cannot resurrect a settled turn.
+- [x] Run tests/typecheck/build. Install the plugin using supported global V2 directory/package configuration while preserving unrelated configuration. Reload using supported V2 behavior. Confirm it appears active and verify genuine current-session events reach the collector. This is a required integration gate before UI claims. If the running API has a material limitation, record it rather than inventing data.
+- [x] Commit `feat: observe existing OpenCode V2 sessions`.
 
 ### Task 4: Build the original interactive pixel office
 
@@ -110,12 +110,12 @@ Single package with a `./server` export for the plugin and a CLI for the collect
 - `Office({sessions, selectedID, onSelect})`, `Roster({sessions, selectedID, onSelect})`, `AgentDetails({session, onClose})` consume Task 1 views, never raw OpenCode payloads.
 - `drawSprite` or equivalent original renderer uses stable character colors from session ID; render choice remains builder discretion.
 
-- [ ] Load frontend-design and ui-ux-pro-max. Set an intentional visual direction: warm wood pixel floor, cream/dark-green app chrome, small readable UI typography, original desk/plant sprites, and crisp pixel scaling. Keep labels readable at normal browser zoom.
-- [ ] Implement authenticated bootstrap handling and `useOffice` with snapshot revision guards, reconnect/error states, and EventSource cleanup.
-- [ ] Implement the shared room, desktop work animation, reading/editing/tool/generating labels, waiting bubble, completion-to-idle transition, and disconnected badge. Render a maximum of 40 characters per page with a clear count/pagination; the roster/filter accesses all retained records. Preserve selected session across updates and handle removal gracefully.
-- [ ] Implement roster search/project filter, counts, detail panel and recent actions. Selection is available by keyboard as real buttons, not only pointer hit areas. Use status text with colors, visible focus and reduced-motion support. Narrow screens stack the detail panel below the office.
-- [ ] Run typecheck/build and the relevant React review checklist. Verify browser: authentic live event updates, selecting a character updates panel, filter and pagination work, malicious-looking synthetic title stays text, keyboard selection works, 390px layout has no page overflow, and reduced-motion disables nonessential animations. Synthetic fixtures must be clearly separated from live mode and excluded from public screenshots containing real data.
-- [ ] Commit `feat: add live pixel office interface`.
+- [x] Load frontend-design and ui-ux-pro-max. Set an intentional visual direction: warm wood pixel floor, cream/dark-green app chrome, small readable UI typography, original desk/plant sprites, and crisp pixel scaling. Keep labels readable at normal browser zoom.
+- [x] Implement authenticated bootstrap handling and `useOffice` with snapshot revision guards, reconnect/error states, and EventSource cleanup.
+- [x] Implement the shared room, desktop work animation, reading/editing/tool/generating labels, waiting bubble, completion-to-idle transition, and disconnected badge. Render a maximum of 40 characters per page with a clear count/pagination; the roster/filter accesses all retained records. Preserve selected session across updates and handle removal gracefully.
+- [x] Implement roster search/project filter, counts, detail panel and recent actions. Selection is available by keyboard as real buttons, not only pointer hit areas. Use status text with colors, visible focus and reduced-motion support. Narrow screens stack the detail panel below the office.
+- [x] Run typecheck/build and the relevant React review checklist. Verify browser: authentic live event updates, selecting a character updates panel, filter and pagination work, malicious-looking synthetic title stays text, keyboard selection works, 390px layout has no page overflow, and reduced-motion disables nonessential animations. Synthetic fixtures must be clearly separated from live mode and excluded from public screenshots containing real data.
+- [x] Commit `feat: add live pixel office interface`.
 
 ### Task 5: End-to-end verification, documentation and public delivery
 
@@ -123,11 +123,11 @@ Single package with a `./server` export for the plugin and a CLI for the collect
 
 **Interfaces:** Installed app launches via the documented CLI, and the built package exports a valid V2 server plugin directory. README is the contract for users installing from GitHub source.
 
-- [ ] Document exact prerequisites, Yarn install/build, global V2 plugin registration/reload, collector launch/open/stop, port overrides, supported OpenCode version, bootstrap limitations, original-asset provenance, local-only data, and complete uninstall. No npm publishing is required; provide source-install instructions and a convenient verified launcher.
-- [ ] Add CI for the locked dependency install, typecheck, tests and build on Node 22. Use synthetic fixtures only.
-- [ ] Run `yarn test`, `yarn typecheck`, `yarn build`; inspect exit codes. Exercise the installed package rather than only source imports. Verify live current-session activity, waiting state where a natural request allows it, collector restart/reconnect, and plugin cleanup/reload. Verify another project and child-session flow with existing activity if available; report any live scenario not exercised rather than claiming it passed from fixtures.
-- [ ] Request a fresh whole-branch review using the applicable review skill. Address functional findings and rerun only affected checks, plus the required final checks after implementation changes.
-- [ ] Inspect `git status`, staged diff and tracked file list for local runtime data, secrets, generated logs and user-specific screenshots. Commit the deliverable and mark plan checkboxes accurately.
+- [x] Document exact prerequisites, Yarn install/build, global V2 plugin registration/reload, collector launch/open/stop, port overrides, supported OpenCode version, bootstrap limitations, original-asset provenance, local-only data, and complete uninstall. No npm publishing is required; provide source-install instructions and a convenient verified launcher.
+- [x] Add CI for the locked dependency install, typecheck, tests and build on Node 22. Use synthetic fixtures only.
+- [x] Run `yarn test`, `yarn typecheck`, `yarn build`; inspect exit codes. Exercise the installed package rather than only source imports. Verify live current-session activity, waiting state where a natural request allows it, collector restart/reconnect, and plugin cleanup/reload. Verify another project and child-session flow with existing activity if available; report any live scenario not exercised rather than claiming it passed from fixtures.
+- [x] Request a fresh whole-branch review using the applicable review skill. Address functional findings and rerun only affected checks, plus the required final checks after implementation changes.
+- [x] Inspect `git status`, staged diff and tracked file list for local runtime data, secrets, generated logs and user-specific screenshots. Commit the deliverable and mark plan checkboxes accurately.
 - [ ] Check whether `jaysonegarcia/opencode-pixel-office` exists; create it public if absent. If present, inspect its contents/history before choosing the remote. Push the verified branch without force, verify remote commit SHA and public visibility.
 - [ ] Save durable project/setup details in `AI Memory/Projects/` and verify the note. Final response includes repository URL, verified startup command, local URL, test summary, and any remaining limitation.
 

@@ -19,7 +19,14 @@ export async function readLocalCredential(directory = stateDirectory()): Promise
   }
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const credential = randomBytes(32).toString('hex');
-  await writeFile(file, credential, { mode: 0o600, flag: 'w' });
+  try {
+    await writeFile(file, credential, { mode: 0o600, flag: 'wx' });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    const winner = (await readFile(file, 'utf8')).trim();
+    if (!/^[a-f0-9]{64}$/.test(winner)) throw new Error('Invalid office credential file');
+    return winner;
+  }
   await chmod(file, 0o600);
   return credential;
 }

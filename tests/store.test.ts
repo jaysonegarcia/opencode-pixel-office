@@ -11,6 +11,36 @@ function fixture() {
   return { store, send, view };
 }
 describe('session state', () => {
+  it('an expired predecessor cannot disconnect the replacement owner', () => {
+    const { store, send, view } = fixture();
+    send({ kind: 'active' });
+    store.heartbeat('replacement', 32000);
+    store.apply([{ sourceID: 'replacement', sequence: 1, sessionID: 's1', kind: 'active', at: 32000 }]);
+    store.sweep(32001);
+    expect(view().status).toBe('working');
+  });
+  it('keeps waiting visible when another tool starts', () => {
+    const { send, view } = fixture();
+    send({ kind: 'request-open', requestID: 'p', requestType: 'permission' });
+    send({ kind: 'tool-start', callID: 't', tool: 'read' });
+    expect(view().status).toBe('waiting');
+  });
+  it('increments revisions when leases or completion timers change', () => {
+    const { store, send } = fixture();
+    send({ kind: 'settled', reason: 'completed' });
+    const before = store.snapshot(1010).revision;
+    store.sweep(20000);
+    expect(store.snapshot(20000).revision).toBeGreaterThan(before);
+    const idle = store.snapshot(20000).revision;
+    store.sweep(32000);
+    expect(store.snapshot(32000).revision).toBeGreaterThan(idle);
+  });
+  it('deduplicates the same event across sources', () => {
+    const { store, view } = fixture();
+    const event: Observation = { sourceID: 'source', sequence: 2, at: 1002, sessionID: 's1', kind: 'active', eventID: 'shared' };
+    store.apply([event, { ...event, sourceID: 'second', sequence: 1 }]);
+    expect(view().history.filter(h => h.kind === 'active')).toHaveLength(1);
+  });
   it('overlapping tools remain active', () => {
     const { send, view } = fixture();
     send({ kind: 'tool-start', callID: 'a', tool: 'read' }); send({ kind: 'tool-start', callID: 'b', tool: 'shell' });

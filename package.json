@@ -4,26 +4,42 @@
   "description": "A local pixel-art office for existing OpenCode V2 sessions",
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=22" },
-  "exports": { "./server": "./dist/plugin/index.js" },
-  "bin": { "opencode-pixel-office": "./dist/server/cli.js" },
-  "files": ["dist", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/plugin/index.js",
+  "exports": {
+    ".": "./dist/plugin/index.js",
+    "./server": "./dist/plugin/index.js"
+  },
+  "bin": {
+    "opencode-pixel-office": "./dist/server/cli.js"
+  },
+  "files": [
+    "dist",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json && vite build",
     "dev": "vite --host 127.0.0.1",
-    "start": "node dist/server/cli.js start"
+    "start": "node dist/server/cli.js start",
+    "office:open": "node dist/server/cli.js open",
+    "observer:install": "node scripts/install-observer.mjs"
   },
-  "dependencies": {
-    "@opencode/plugin": "2.2.7",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+  "peerDependencies": {
+    "@opencode/plugin": ">=2.2.7 <3"
   },
   "devDependencies": {
+    "@opencode/plugin": "2.2.7",
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "typescript": "^5.9.3",
     "vite": "^6.4.1",
     "vitest": "^3.2.4"

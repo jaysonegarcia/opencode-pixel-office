@@ -34,6 +34,36 @@ function observation(sequence: number): Observation {
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 describe('observation transport', () => {
+  it('resumes after an unhealthy start and never wedges', async () => {
+    const { url, received } = await collector();
+    let healthy = false;
+    const transport = createTransport({ url, credential: 'secret', sourceID: 'source', retryDelayMs: 5, heartbeatMs: 10, isHealthy: () => healthy });
+    await wait(30);
+    healthy = true;
+    transport.enqueue(observation(1));
+    await wait(60);
+    expect(received.some(r => JSON.parse(r.body).observations?.length)).toBe(true);
+    await transport.close();
+  });
+  it('rebuilds after collector generation changes without any new events', async () => {
+    let generation = 'first';
+    let rebuilds = 0;
+    const server = createServer((request, response) => {
+      request.resume();
+      request.on('end', () => response.writeHead(204, { 'x-office-generation': generation }).end());
+    });
+    servers.push(server);
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('no port');
+    const transport = createTransport({ url: `http://127.0.0.1:${address.port}`, credential: 'secret', sourceID: 'source', heartbeatMs: 10, retryDelayMs: 5, onReconcile: () => { rebuilds++; } });
+    await wait(80);
+    expect(rebuilds).toBe(1);
+    generation = 'replacement';
+    await wait(80);
+    expect(rebuilds).toBe(2);
+    await transport.close();
+  });
   it('sends bounded batches with the local credential', async () => {
     const { url, received } = await collector();
     const transport = createTransport({ url, credential: 'secret', sourceID: 'source', retryDelayMs: 5, heartbeatMs: 10_000 });
@@ -41,8 +71,11 @@ describe('observation transport', () => {
     transport.enqueue(observation(2));
     await transport.close();
     expect(received.length).toBeGreaterThan(0);
-    expect(received[0].authorization).toBe('Bearer secret');
-    expect(JSON.parse(received[0].body)).toMatchObject({ sourceID: 'source', observations: [{ sequence: 1, kind: 'active' }] });
+    const batch = received.find(r => JSON.parse(r.body).observations?.length);
+    expect(batch?.authorization).toBe('Bearer secret');
+    const payload = JSON.parse(batch!.body) as { sourceID: string; observations: unknown[] };
+    expect(payload.sourceID).toBe('source');
+    expect(payload.observations[0]).toMatchObject({ sequence: 1, kind: 'active' });
   });
 
   it('never blocks the caller on a failing collector and closes cleanly', async () => {

@@ -49,6 +49,7 @@ export class OfficeStore {
   private sources = new Map<string, SourceRecord>();
   private revision = 0;
   private capacityReached = false;
+  private seenEvents = new Set<string>();
   private readonly options: Required<StoreOptions>;
 
   constructor(options: StoreOptions = {}) {
@@ -85,6 +86,7 @@ export class OfficeStore {
       if (session && session.status !== 'disconnected') {
         session.status = 'disconnected';
         session.activity = 'Connection lost';
+        this.revision += 1;
       }
     }
   }
@@ -114,6 +116,7 @@ export class OfficeStore {
         session.status = 'idle';
         session.activity = 'Idle';
         session.doneAt = null;
+        this.revision += 1;
       }
     }
   }
@@ -152,7 +155,9 @@ export class OfficeStore {
   private accept(event: Observation): boolean {
     const source = this.source(event.sourceID);
     if (event.eventID) {
-      if (source.seen.has(event.eventID)) return false;
+      if (this.seenEvents.has(event.eventID)) return false;
+      this.seenEvents.add(event.eventID);
+      if (this.seenEvents.size > this.options.maxSeenEvents) this.seenEvents.delete(this.seenEvents.values().next().value!);
       source.seen.add(event.eventID);
       source.seenOrder.push(event.eventID);
       if (source.seenOrder.length > this.options.maxSeenEvents) {
@@ -175,7 +180,7 @@ export class OfficeStore {
       return;
     }
     const previous = this.sessions.get(event.sessionID);
-    if (!previous && event.kind === 'metadata' && this.sessions.size >= this.options.maxSessions) {
+    if (!previous && this.sessions.size >= this.options.maxSessions) {
       this.capacityReached = true;
       return;
     }
@@ -183,11 +188,15 @@ export class OfficeStore {
     if (!session) return;
 
     const source = this.source(event.sourceID);
+    for (const [id, other] of this.sources) {
+      if (id !== event.sourceID) other.sessions.delete(session.id);
+    }
     source.sessions.add(session.id);
     session.updatedAt = Math.max(session.updatedAt, event.at);
 
     switch (event.kind) {
       case 'metadata':
+        if (session.status === 'disconnected') { session.status = 'idle'; session.activity = 'Idle'; }
         if (event.meta) {
           session.title = event.meta.title || session.title;
           session.agent = event.meta.agent || session.agent;
@@ -203,8 +212,9 @@ export class OfficeStore {
         break;
       case 'tool-start':
         if (event.callID) {
+          const existing = session.tools.find(tool => tool.callID === event.callID);
           session.tools = session.tools.filter(tool => tool.callID !== event.callID);
-          session.tools.push({ callID: event.callID, tool: event.tool ?? 'unknown tool' });
+          session.tools.push({ callID: event.callID, tool: event.tool === 'unknown tool' && existing ? existing.tool : event.tool ?? 'unknown tool' });
         }
         session.status = 'working';
         session.activity = event.tool ? `Using ${event.tool}` : 'Using a tool';
@@ -255,6 +265,12 @@ export class OfficeStore {
         break;
     }
 
+    if (session.pending.size > 0) {
+      session.status = 'waiting';
+      session.activity = [...session.pending.values()].includes('question') ? 'Needs an answer' : 'Needs permission';
+    } else if (session.status === 'working' && session.tools.length) {
+      session.activity = `Using ${session.tools[session.tools.length - 1].tool}`;
+    }
     this.record(session, event);
   }
 

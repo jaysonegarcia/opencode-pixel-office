@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -207,6 +208,8 @@ function parseObservation(value: unknown, sourceID: string): Observation | undef
 
 export async function startOfficeServer(options: OfficeServerOptions = {}): Promise<OfficeServer> {
   const host = options.host ?? '127.0.0.1';
+  if (!['127.0.0.1', '::1'].includes(host)) throw new Error('Collector must bind to loopback');
+  const generation = randomUUID();
   const credential = await readLocalCredential(options.stateDir ?? stateDirectory());
   const store = new OfficeStore({ leaseMs: options.leaseMs });
   const sessions = new BrowserSessions();
@@ -262,7 +265,7 @@ export async function startOfficeServer(options: OfficeServerOptions = {}): Prom
         allowed =
           parsed.protocol === 'http:' &&
           ALLOWED_HOSTNAMES.has(parsed.hostname) &&
-          (parsed.port === '' || parsed.port === port);
+          (parsed.port || '80') === port;
       } catch {
         allowed = false;
       }
@@ -327,7 +330,7 @@ export async function startOfficeServer(options: OfficeServerOptions = {}): Prom
       return;
     }
 
-    if (pathname.startsWith('/api/') && !guardRequest(req, res)) return;
+    if (!guardRequest(req, res)) return;
 
     if (pathname === '/health' && req.method === 'GET') {
       sendJson(res, 200, { status: 'ok', name: 'opencode-pixel-office', version: '0.1.0', uptime: Math.round(process.uptime()) });
@@ -357,10 +360,11 @@ export async function startOfficeServer(options: OfficeServerOptions = {}): Prom
         observations.push(observation);
       }
       const now = Date.now();
+      if (envelope?.reset === true) store.resetSource(sourceID);
       store.heartbeat(sourceID, now);
       store.apply(observations);
       scheduleBroadcast();
-      res.writeHead(204).end();
+      res.writeHead(204, { 'x-office-generation': generation }).end();
       return;
     }
 
@@ -378,7 +382,8 @@ export async function startOfficeServer(options: OfficeServerOptions = {}): Prom
       const sourceID = asRecord(parsed) ? text((parsed as Record<string, unknown>).sourceID, 200) : undefined;
       if (!sourceID) return sendJson(res, 400, { error: 'invalid heartbeat' });
       store.heartbeat(sourceID, Date.now());
-      res.writeHead(204).end();
+      scheduleBroadcast();
+      res.writeHead(204, { 'x-office-generation': generation }).end();
       return;
     }
 
